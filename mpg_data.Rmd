@@ -1,0 +1,294 @@
+---
+title: "mpg_data"
+author: "Vijay Rohin Periaiah"
+date: "July 31, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+# The data concerns city-cycle fuel consumption in miles per gallon, to be predicted in terms of 3 multivalued discrete and 5 continuous attributes. (Quinlan, 1993)
+
+# @author: Vijay Rohin Periaiah
+
+#install.packages("corrplot")
+library(corrplot)
+
+#Mean imputation is used to impute the missing values in horsepower. 
+#By using "pairwise.complete.obs" (correlation matrix), we can find the correlation of the dataset, 
+#which ignores the rows with missing values, from that matrix we can infer that cylinders and displacement are highly correlated to horsepower. 
+#Thus we find the mean of the horsepower values for the combination of cylinder and displacement for the missing values.
+
+# To read given train data csv file 
+train_data <- read.csv('data/mpg.csv')
+
+# To get the column names of the dataset
+colnames(train_data)
+
+# To rewrite the column names properly
+colnames(train_data) <- c("s_no", "mpg", "cylinders", "displacement", "horsepower", "weight", "acceleration", "model_year", "origin", "car_name")
+
+# To verify columns, which are of numeric type
+sapply(train_data, is.numeric)
+
+# To update with NA in horsepower column for non-numeric values
+train_data$horsepower = suppressWarnings(as.numeric(as.character(train_data$horsepower)))
+
+# To determine the rows having NA values in horsepower column
+train_data[is.na(train_data$horsepower),]
+
+# To get numeric values from the train data set only
+train_data <- train_data[, sapply(train_data, is.numeric)]
+
+# To construct correlation matrix and determine their relationships
+cor(train_data, use = 'pairwise.complete.obs', method = 'pearson')
+
+# On examining the above matrix (correlation), we can infer that horsepower, cylinders and displacement are definitely correlated
+# Horsepower is restricted to certain ranges for few different values in cylinder and displacement, whereas weight is varied a lot.
+# We have imputed the missing values with the mean of horsepower for that certain range.
+# There were 6 missing values in horsepower, so the mean of horsepower is computed based on it's corresponding cylinders and displacement
+# Cylinder 6 and Displacement = 200, horsepower (mean imputed value) = 86
+# Cylinder 4 and Displacement = 98, horsepower (mean imputed value) = 72
+# Cylinder 4 and Displacement = 85, horsepower (mean imputed value) = 65
+# Cylinder 4 and Displacement = 140, horsepower (mean imputed value) = 85
+# Cylinder 4 and Displacement = 151, horsepower (mean imputed value) = 89
+# Cylinder 4 and Displacement = 100, horsepower (mean imputed value) = 83
+# For this above last entry alone mean of horsepower with displacement = 101 and cylinders = 4 is taken, 
+# since there are no rows to calculate mean horsepower for displacement = 100 and cylinders = 4.
+
+train_data <- within(train_data, horsepower[displacement == 200 & cylinders == 6] <- 86)
+train_data <- within(train_data, horsepower[displacement == 98 & cylinders == 4] <- 72)
+train_data <- within(train_data, horsepower[displacement == 85 & cylinders == 4] <- 65)
+train_data <- within(train_data, horsepower[displacement == 140 & cylinders == 4] <- 85)
+train_data <- within(train_data, horsepower[displacement == 151 & cylinders == 4] <- 89)
+train_data <- within(train_data, horsepower[displacement == 100 & cylinders == 4] <- 83)
+
+#mpg vs cylinders:
+#  There lies a negative correlation between mpg and cylinders, since it follows a step-wise pattern where mpg varies within a certain range for each value of cylinders and slopes downwards from left to right.
+
+#mpg vs displacement:
+#  There lies a negative correlation between mpg and displacement, where the pattern slopes downwards from left to right.
+
+#mpg vs horsepower:
+#  There lies a negative correlation between mpg and horsepower, since the pattern shows a downward sloping from left to right.
+
+#mpg vs weight:
+#  There lies a negative correlation between mpg and weight similar to the above two comparisons, where the pattern slopes downwards from left to right.
+
+#mpg vs acceleration:
+#  From the plot, we infer that there is a slight little positive correlation between mpg and acceleration, since the pattern slopes upwards from left to right.
+
+#mpg vs model_year:
+#  There a lies a positive correlation between mp and model year.
+
+#mpg vs origin:
+#  There lies a slight little positive correlation between mpg and origin, where horizontal pattern (step-wise pattern) exits.
+
+# To remove car name and acquire numeric data from the train dataset
+train_data <- train_data[, sapply(train_data, is.numeric)]
+
+# To construct the pair plots for all the given variables in the train dataset except car name
+pairs(train_data, upper.panel = NULL)
+
+#mpg vs cylinders:
+#  There lies a negative correlation between mpg and cylinders, since it follows a step-wise pattern where mpg varies within a certain range for each value of cylinders and slopes downwards from left to right.
+
+#mpg vs displacement:
+#  There lies a negative correlation between mpg and displacement, where the pattern slopes downwards from left to right.
+
+#mpg vs horsepower:
+#  There lies a negative correlation between mpg and horsepower, since the pattern shows a downward sloping from left to right.
+
+#mpg vs weight:
+#  There lies a negative correlation between mpg and weight similar to the above two comparisons, where the pattern slopes downwards from left to right.
+
+#mpg vs acceleration:
+#  From the plot, we infer that there is a slight little positive correlation between mpg and acceleration, since the pattern slopes upwards from left to right.
+
+#mpg vs model_year:
+#  There a lies a positive correlation between mp and model year.
+
+#mpg vs origin:
+#  There lies a slight little positive correlation between mpg and origin, where horizontal pattern (step-wise pattern) exits.
+
+
+#On observing the plots and correlation matrix, we can infer that weight, cylinders, displacement and horsepower is strongly correlated. 
+#Therefore, all of the variables cannot be considered together as they might give rise to multicollinearity problem. 
+#Weight seems to have a very strong correlation with mpg. So its is a strong candidate. 
+#Also, acceleration doesn't seem to impact mpg much. Therefore, acceleration can be ignored. 
+#Model year also shows some positive correlation, so it can be considered as well.
+
+#In order to confirm our choices, we can run a initial set of pairwise regression which will comfirm the choices.
+
+#Therefore, it is proposed that, weight, model year and origin will explain mpg well.
+
+# To construct correlation matrix and determine their relationships (correlation) after mean imputation for missing values
+cor(train_data, method = 'pearson')
+
+# From the correlation matrix and pair plots we can conclude that cylinders, displacement, horsepower and weight (All 4 variables) are highly correlated.
+# This explicitly states the presence of multicollinearity problem, if all the 4 variables are included as predictors.
+
+# Linear model 1 - All available variables vs (against) mpg (miles per gallon)
+lim_1 <- lm(mpg ~ cylinders + displacement + horsepower + weight + 
+              acceleration + model_year + origin, data = train_data)
+summary(lim_1)
+
+# For the below created linear models from 2 - 7, we have considered only the correlated predictors.
+# These shows that one of the predictors becomes insignificant or R-squared value decreases.
+
+# Linear model 2 - weight & horsepower (correlated) vs (against) mpg (miles per gallon) 
+# Here we can see that horsepower becomes insignificant
+lim_2 <- lm(mpg ~ weight + horsepower + model_year + origin, data = train_data)
+summary(lim_2)
+
+# Linear model 3 - weight & cylinders (correlated) vs (against) mpg (miles per gallon) 
+# Here we can see that cylinders becomes insignificant   
+lim_3 <- lm(mpg ~ weight + cylinders + model_year + origin, data = train_data)
+summary(lim_3)
+
+# Linear model 4 - weight & displacement (correlated) vs (against) mpg (miles per gallon) 
+# Here we can see that displacement becomes insignificant   
+lim_4 <- lm(mpg ~ weight + displacement + model_year + origin, data = train_data)
+summary(lim_4)
+
+# Linear model 5 - displacement & cylinders (correlated) vs (against) mpg (miles per gallon) 
+# Here we can see that cylinders becomes insignificant
+lim_5 <- lm(mpg ~ displacement + cylinders + model_year + origin, data = train_data)
+summary(lim_5)
+
+# Linear model 6 - displacement & horsepower (correlated) vs (against) mpg (miles per gallon) 
+# Here we can see that R-squared value is decreased
+lim_6 <- lm(mpg ~ displacement + horsepower + model_year, data = train_data)
+summary(lim_6)
+
+# Linear model 7 - cylinders & horsepower (correlated) vs (against) mpg (miles per gallon) 
+# Here we can see that R-squared value is decreased   
+lim_7 <- lm(mpg ~ cylinders + horsepower + model_year, data = train_data)
+summary(lim_7)
+
+# To determine the most strongest predictor among the above correlated variables,
+# Individually we run, each one of the correlated variable with other given variables like acceleration, model year & origin.
+# Finally, we can conclude that acceleration turns out to be insignificant almost all the times.
+
+# Linear model 8 - cylinders & other given variables vs (against) mpg (miles per gallon)
+lim_8 <- lm(mpg ~ cylinders + acceleration + model_year + origin, data = train_data)
+summary(lim_8)
+
+# Linear model 9 - displacement & other given variables vs (against) mpg (miles per gallon)
+lim_9 <- lm(mpg ~ displacement + acceleration + model_year + origin, data = train_data)
+summary(lim_9)
+
+# Linear model 10 - horsepower & other given variables vs (against) mpg (miles per gallon) 
+lim_10 <- lm(mpg ~ horsepower + acceleration + model_year + origin, data = train_data)
+summary(lim_10)
+
+# Linear model 11 - weight & other given variables vs (against) mpg (miles per gallon) 
+lim_11 <- lm(mpg ~ weight + acceleration + model_year + origin, data = train_data)
+summary(lim_11)
+
+#Residuals:
+#The linear model summary provides various information about the Residuals. 
+#Residuals = Actual value - Predicted Value (from model). 
+#Gives us the difference between actual value and predicted value using the model.
+#To analyse whether the residuals are symmetrically distributed about the mean, we can use minimum, median, third quartile and max values.
+#We except to have the median close to zero (0) with first and third quartiles symmetrical about the mean.
+#In the model chosen the median is quite close to zero, however the residuals are not as symmetric as we would like them to be. The max values indicate that some large values exists.
+
+#Coefficients
+#The coefficents are the constants that follows the amount of change in the predictor variable, causing a unit of change in the response variable
+#All the predictors and intercept is highly significant in our regression. 
+
+#Estimates
+#The estimates of the intercept term, each predictor variables' coefficent betas are provided by the column estimates in our summary. 
+#The expected value of Y given all X are equal to zero is presented by the intercept term. 
+#In our regression the intercept has a value of -16.02, coefficient for weight is -0.006195 which means weight neagatively impacts mpg although the impact is very small. 
+#For a 0.6 unit increase in weight, mpg reduces by 1 unit. Model year positively impacts mpg. 
+#The coefficient for model year is 0.7412 which means for a for a newer model manufactured every 7 months there is a 1 unit increase in mpg. 
+#The coefficient of origin is 1.07 which means that if the manufacturing process is done in more than 1 place, the mpg increases by 1 unit.
+
+#Standard Error
+#The estimate of the standard deviation of the coefficents is given by "Standard Error", which is used in the measurement of precision of the estimated coefficent. 
+#In our regression all of the coefficients have very small standard errors except intercept.
+
+#t Value
+#We use t statistics to perform hypothesis testing on the estimates of the coefficents. It is used in the measurement of how many standard deviations away from zero.
+#(estimator - parameter) / estimated standard error of estimator.
+#Null hypothesis H0: Beta = 0
+#t value = (hat)beta / se(hat(beta))
+#***se -> standard error
+#This enables us to find whether Y is related to X. 
+#We reject null hypothesis, if the modulus of t statistic is greater than (>) calculated critical value.
+#For our regression model, based on the t values we can confirm that the coefficients are significant i.e we can reject the null hypothesis at both 5% and 1% level of significance.
+
+
+#|pr > t|
+#  p value: (|pr > t|):
+#  p value denotes the probability of observing the particular t value.
+#p value is defined as as the lowest significance level at which null hypothesis can be rejected.
+#p value must as close to zero as possible, lesser p value is better.
+#The p-values are extremely close to zero for all the coefficients in our model. The three stars beside the p value indicates that they are highly significant.
+
+#Residual Standard Error
+#It is te square root of mean square error (mse^-2).
+#It is the sd of the residuals of regression and a measure of quality of regression line's fit.
+#Lesser RSE value is better.
+#The residual standard error in or regression is 3.457 which is smaller when compared to our other models. 
+
+#R-Squared
+#Total Sum of Squares (TSS) = Explained Sum of Squares (ESS) + Residual Sum of Squares (RSS)
+#The total variation of actual Y values about sample mean is called Total Sum of Squares (TSS)
+#The variation of estimated Y value about their mean ( variations explained by regressions ) is called Explained Sum of Squares (ESS).
+#The unexplained variation of Y about the regression line is called Residual Sum of Squares (RSS).
+#The R-squared value for our regression is 0.8149 or 81.49% which the high. So the predictors sufficiently explain the dependent variable mpg.
+
+#Adjusted - R-square
+#As name denotes its the R-square value adjusted for the degrees of freedom, which corrects the model if many predictors (variables) are included in it. The Adjusted R squared value is 0.8133.
+
+# Since acceleration is insignificant almost all times, we can ignore them.
+# Among all the correlated predictors (cylinders, displacement, horsepower and weight), the most significant is weight.
+# The most significant and simplest model that illustrates mpg in a explanatory fashion contains weight, model year and origin (little effect on mpg)
+
+# Linear model 12 - weight, model year and origin vs (against) mpg (miles per gallon)  
+lim_12 <- lm(mpg ~ weight + model_year + origin, data = train_data)
+summary(lim_12)
+
+# Linear model 13 - weight, model year and ratio between them along with origin vs (against) mpg (miles per gallon)
+lim_13 <- lm(mpg ~ weight + weight:model_year + model_year+ origin, data = train_data)
+summary(lim_13)
+
+#When compared with our previous significant linear model, the adjusted R square value increased from 0.816 to 0.839 due to the inclusion of interaction term of weight to model year.
+
+# Box plots are drawn for 3 multivariate discrete attributes against mpg
+boxplot(mpg ~ cylinders, data = train_data, xlab = "Number of Cylinders",ylab = "Miles Per Gallon", main = "Mileage Data")
+boxplot(mpg ~ model_year, data = train_data, xlab = "Model Year",ylab = "Miles Per Gallon", main = "Mileage Data")
+boxplot(mpg ~ origin, data = train_data, xlab = "Origin",ylab = "Miles Per Gallon", main = "Mileage Data")
+
+#correlation plot
+corrplot(cor(train_data, use = 'pairwise.complete.obs', method = 'pearson'))
+
+#histogram
+hist(train_data$mpg, main="Histogram for Miler per Gallon", xlab="Miles per Gallon", border="blue", col="green", las=1, breaks=5, freq = FALSE)
+lines(density(train_data$mpg))
+
+# chi-sq test
+chisq.test(train_data$displacement, train_data$cylinders, correct=FALSE)
+chisq.test(train_data)
+
+#t test
+t.test(train_data$displacement, train_data$cylinders, paired = TRUE)
+t.test(train_data$displacement, train_data$cylinders)
+#t.test(train_data$mpg~train_data$origin)
+
+
+```
+
+
